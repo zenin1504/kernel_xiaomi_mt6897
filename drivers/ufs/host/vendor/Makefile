@@ -12,7 +12,4 @@ ufs-mediatek-mod-$(CONFIG_MTK_BLOCK_IO_TRACER)  += ../ufs-mediatek-btag.o
 ufs-mediatek-mod-$(CONFIG_RPMB)                 += ../ufs-mediatek-rpmb.o
 ufs-mediatek-mod-$(CONFIG_RPMB)                 += ../ufs-mediatek-ise-dummy.o
 ufs-mediatek-mod-$(CONFIG_UFSFEATURE)           += ufsfeature.o ufsfeature-mimic.o
-ufs-mediatek-mod-$(CONFIG_UFSSHPB)              += ufsshpb.o
-ufs-mediatek-mod-$(CONFIG_UFSTW)                += ufstw.o
 ufs-mediatek-mod-$(CONFIG_UFSHID)               += ufshid.o
-ufs-mediatek-mod-$(CONFIG_UFSRINGBUF)           += ufsringbuf.o
