@@ -8,6 +8,7 @@
 #include <linux/io.h>
 #include <linux/iopoll.h>
 #include <linux/mfd/syscon.h>
+#include <linux/module.h>
 #include <linux/of_clk.h>
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
@@ -578,6 +579,9 @@ static const struct of_device_id scpsys_of_match[] = {
 		.compatible = "mediatek,mt8186-power-controller",
 		.data = &mt8186_scpsys_data,
 	},
+		.compatible = "mediatek,mt8188-power-controller",
+		.data = &mt8188_scpsys_data,
+	},
 	{
 		.compatible = "mediatek,mt8192-power-controller",
 		.data = &mt8192_scpsys_data,
@@ -671,4 +675,5 @@ static struct platform_driver scpsys_pm_domain_driver = {
 		.of_match_table = scpsys_of_match,
 	},
 };
-builtin_platform_driver(scpsys_pm_domain_driver);
+module_platform_driver(scpsys_pm_domain_driver);
+MODULE_LICENSE("GPL");

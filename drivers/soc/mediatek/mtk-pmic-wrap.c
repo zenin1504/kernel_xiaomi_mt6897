@@ -27,6 +27,7 @@
 #define PWRAP_MT8135_BRIDGE_WDT_SRC_EN		0x54
 
 /* macro for wrapper status */
+#define PWRAP_GET_SWINF_2_FSM(x)	(((x) >> 1) & 0x00000007)
 #define PWRAP_GET_WACS_RDATA(x)		(((x) >> 0) & 0x0000ffff)
 #define PWRAP_GET_WACS_ARB_FSM(x)	(((x) >> 1) & 0x00000007)
 #define PWRAP_GET_WACS_FSM(x)		(((x) >> 16) & 0x00000007)
@@ -225,6 +226,21 @@ static const u32 mt6358_regs[] = {
 	[PWRAP_RG_SPI_CON8] =		0x043e,
 	[PWRAP_RG_SPI_CON13] =		0x0448,
 	[PWRAP_SPISLV_KEY] =		0x044a,
+};
+
+static const u32 mt6359p_regs[] = {
+	[PWRAP_DEW_DIO_EN] =		0x040c,
+	[PWRAP_DEW_READ_TEST] =		0x040e,
+	[PWRAP_DEW_WRITE_TEST] =	0x0410,
+	[PWRAP_DEW_CRC_EN] =		0x0414,
+	[PWRAP_DEW_CRC_VAL] =		0x0416,
+	[PWRAP_DEW_CIPHER_KEY_SEL] =	0x0418,
+	[PWRAP_DEW_CIPHER_IV_SEL] =	0x041a,
+	[PWRAP_DEW_CIPHER_EN] =		0x041c,
+	[PWRAP_DEW_CIPHER_RDY] =	0x041e,
+	[PWRAP_DEW_CIPHER_MODE] =	0x0420,
+	[PWRAP_DEW_CIPHER_SWRST] =	0x0422,
+	[PWRAP_DEW_RDDMY_NO] =		0x0424,
 };
 
 static const u32 mt6359_regs[] = {
@@ -635,6 +651,17 @@ static int mt6797_regs[] = {
 	[PWRAP_WDT_SRC_EN] =		0x100,
 	[PWRAP_DCM_EN] =		0x1CC,
 	[PWRAP_DCM_DBC_PRD] =		0x1D4,
+};
+
+static int mt6853_regs[] = {
+	[PWRAP_INIT_DONE2] =		0x0,
+	[PWRAP_TIMER_EN] =		0x3E4,
+	[PWRAP_INT_EN] =		0x450,
+	[PWRAP_WACS2_CMD] =		0xC80,
+	[PWRAP_SWINF_2_WDATA_31_0] =	0xC84,
+	[PWRAP_SWINF_2_RDATA_31_0] =	0xC94,
+	[PWRAP_WACS2_VLDCLR] =		0xCA4,
+	[PWRAP_WACS2_RDATA] =		0xCA8,
 };
 
 static int mt6873_regs[] = {
@@ -1123,6 +1150,7 @@ enum pmic_type {
 	PMIC_MT6357,
 	PMIC_MT6358,
 	PMIC_MT6359,
+	PMIC_MT6359P,
 	PMIC_MT6380,
 	PMIC_MT6397,
 };
@@ -1132,6 +1160,7 @@ enum pwrap_type {
 	PWRAP_MT6765,
 	PWRAP_MT6779,
 	PWRAP_MT6797,
+	PWRAP_MT6853,
 	PWRAP_MT6873,
 	PWRAP_MT7622,
 	PWRAP_MT8135,
@@ -1602,6 +1631,7 @@ static int pwrap_init_cipher(struct pmic_wrapper *wrp)
 	case PWRAP_MT7622:
 		pwrap_writel(wrp, 0, PWRAP_CIPHER_EN);
 		break;
+	case PWRAP_MT6853:
 	case PWRAP_MT6873:
 	case PWRAP_MT8183:
 	case PWRAP_MT8195:
@@ -1944,6 +1974,13 @@ static const struct pwrap_slv_type pmic_mt6359 = {
 	.caps = PWRAP_SLV_CAP_DUALIO,
 };
 
+static const struct pwrap_slv_type pmic_mt6359p = {
+	.dew_regs = mt6359p_regs,
+	.type = PMIC_MT6359P,
+	.regops = &pwrap_regops16,
+	.caps = 0,
+};
+
 static const struct pwrap_slv_type pmic_mt6380 = {
 	.dew_regs = NULL,
 	.type = PMIC_MT6380,
@@ -1965,6 +2002,7 @@ static const struct of_device_id of_slave_match_tbl[] = {
 	{ .compatible = "mediatek,mt6357", .data = &pmic_mt6357 },
 	{ .compatible = "mediatek,mt6358", .data = &pmic_mt6358 },
 	{ .compatible = "mediatek,mt6359", .data = &pmic_mt6359 },
+	{ .compatible = "mediatek,mt6359p", .data = &pmic_mt6359p },
 
 	/* The MT6380 PMIC only implements a regulator, so we bind it
 	 * directly instead of using a MFD.
@@ -2022,6 +2060,19 @@ static const struct pmic_wrapper_type pwrap_mt6797 = {
 	.spi_w = PWRAP_MAN_CMD_SPI_WRITE,
 	.wdt_src = PWRAP_WDT_SRC_MASK_ALL,
 	.caps = PWRAP_CAP_RESET | PWRAP_CAP_DCM,
+	.init_reg_clock = pwrap_common_init_reg_clock,
+	.init_soc_specific = NULL,
+};
+
+static const struct pmic_wrapper_type pwrap_mt6853 = {
+	.regs = mt6853_regs,
+	.type = PWRAP_MT6853,
+	.arb_en_all = 0x777f,
+	.int_en_all = 0x180000,
+	.int1_en_all = 0,
+	.spi_w = PWRAP_MAN_CMD_SPI_WRITE,
+	.wdt_src = PWRAP_WDT_SRC_MASK_ALL,
+	.caps = PWRAP_CAP_ARB,
 	.init_reg_clock = pwrap_common_init_reg_clock,
 	.init_soc_specific = NULL,
 };
@@ -2134,6 +2185,7 @@ static const struct of_device_id of_pwrap_match_tbl[] = {
 	{ .compatible = "mediatek,mt6765-pwrap", .data = &pwrap_mt6765 },
 	{ .compatible = "mediatek,mt6779-pwrap", .data = &pwrap_mt6779 },
 	{ .compatible = "mediatek,mt6797-pwrap", .data = &pwrap_mt6797 },
+	{ .compatible = "mediatek,mt6853-pwrap", .data = &pwrap_mt6853 },
 	{ .compatible = "mediatek,mt6873-pwrap", .data = &pwrap_mt6873 },
 	{ .compatible = "mediatek,mt7622-pwrap", .data = &pwrap_mt7622 },
 	{ .compatible = "mediatek,mt8135-pwrap", .data = &pwrap_mt8135 },
