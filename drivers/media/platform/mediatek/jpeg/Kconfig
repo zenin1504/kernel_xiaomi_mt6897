@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 config VIDEO_MEDIATEK_JPEG
 	tristate "Mediatek JPEG Codec driver"
-	depends on V4L_MEM2MEM_DRIVERS
 	depends on MTK_IOMMU_V1 || MTK_IOMMU || COMPILE_TEST
 	depends on VIDEO_DEV
 	depends on ARCH_MEDIATEK || COMPILE_TEST
