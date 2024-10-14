@@ -79,11 +79,14 @@ static int mtk_disp_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	if (state->polarity != PWM_POLARITY_NORMAL)
 		return -EINVAL;
 
-	if (!state->enabled && mdp->enabled) {
-		mtk_disp_pwm_update_bits(mdp, DISP_PWM_EN,
-					 mdp->data->enable_mask, 0x0);
-		clk_disable_unprepare(mdp->clk_mm);
-		clk_disable_unprepare(mdp->clk_main);
+	if (!state->enabled) {
+		mtk_disp_pwm_update_bits(mdp, DISP_PWM_EN, mdp->data->enable_mask,
+					 0x0);
+
+		if (mdp->enabled) {
+			clk_disable_unprepare(mdp->clk_mm);
+			clk_disable_unprepare(mdp->clk_main);
+		}
 
 		mdp->enabled = false;
 		return 0;
@@ -116,6 +119,7 @@ static int mtk_disp_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	 * period = (PWM_CLK_RATE * period_ns) / (10^9 * (clk_div + 1)) - 1
 	 * high_width = (PWM_CLK_RATE * duty_ns) / (10^9 * (clk_div + 1))
 	 */
+	pr_notice("%s duty_cycle[%llu] period[%llu]\n", __func__, state->duty_cycle, state->period);
 	rate = clk_get_rate(mdp->clk_main);
 	clk_div = mul_u64_u64_div_u64(state->period, rate, NSEC_PER_SEC) >>
 			  PWM_PERIOD_BIT_WIDTH;
@@ -135,18 +139,8 @@ static int mtk_disp_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	high_width = mul_u64_u64_div_u64(state->duty_cycle, rate, div);
 	value = period | (high_width << PWM_HIGH_WIDTH_SHIFT);
 
-	if (mdp->data->bls_debug && !mdp->data->has_commit) {
-		/*
-		 * For MT2701, disable double buffer before writing register
-		 * and select manual mode and use PWM_PERIOD/PWM_HIGH_WIDTH.
-		 */
-		mtk_disp_pwm_update_bits(mdp, mdp->data->bls_debug,
-					 mdp->data->bls_debug_mask,
-					 mdp->data->bls_debug_mask);
-		mtk_disp_pwm_update_bits(mdp, mdp->data->con0,
-					 mdp->data->con0_sel,
-					 mdp->data->con0_sel);
-	}
+	pr_notice("%s rate[%llx] clk_div[%u] div[%llx] high_width[%u] value[%u] period[%u]",
+		__func__, rate, clk_div, div, high_width, value, period);
 
 	mtk_disp_pwm_update_bits(mdp, mdp->data->con0,
 				 PWM_CLKDIV_MASK,
@@ -162,6 +156,17 @@ static int mtk_disp_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 		mtk_disp_pwm_update_bits(mdp, mdp->data->commit,
 					 mdp->data->commit_mask,
 					 0x0);
+	} else {
+		/*
+		 * For MT2701, disable double buffer before writing register
+		 * and select manual mode and use PWM_PERIOD/PWM_HIGH_WIDTH.
+		 */
+		mtk_disp_pwm_update_bits(mdp, mdp->data->bls_debug,
+					 mdp->data->bls_debug_mask,
+					 mdp->data->bls_debug_mask);
+		mtk_disp_pwm_update_bits(mdp, mdp->data->con0,
+					 mdp->data->con0_sel,
+					 mdp->data->con0_sel);
 	}
 
 	mtk_disp_pwm_update_bits(mdp, DISP_PWM_EN, mdp->data->enable_mask,
@@ -172,12 +177,12 @@ static int mtk_disp_pwm_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 }
 
 static int mtk_disp_pwm_get_state(struct pwm_chip *chip,
-				  struct pwm_device *pwm,
-				  struct pwm_state *state)
+				   struct pwm_device *pwm,
+				   struct pwm_state *state)
 {
 	struct mtk_disp_pwm *mdp = to_mtk_disp_pwm(chip);
 	u64 rate, period, high_width;
-	u32 clk_div, pwm_en, con0, con1;
+	u32 clk_div, con0, con1;
 	int err;
 
 	err = clk_prepare_enable(mdp->clk_main);
@@ -193,27 +198,20 @@ static int mtk_disp_pwm_get_state(struct pwm_chip *chip,
 		return 0;
 	}
 
-	/*
-	 * Apply DISP_PWM_DEBUG settings to choose whether to enable or disable
-	 * registers double buffer and manual commit to working register before
-	 * performing any read/write operation
-	 */
-	if (mdp->data->bls_debug)
-		mtk_disp_pwm_update_bits(mdp, mdp->data->bls_debug,
-					 mdp->data->bls_debug_mask,
-					 mdp->data->bls_debug_mask);
-
 	rate = clk_get_rate(mdp->clk_main);
 	con0 = readl(mdp->base + mdp->data->con0);
 	con1 = readl(mdp->base + mdp->data->con1);
-	pwm_en = readl(mdp->base + DISP_PWM_EN);
-	state->enabled = !!(pwm_en & mdp->data->enable_mask);
+	state->enabled = !!(con0 & BIT(0));
 	clk_div = FIELD_GET(PWM_CLKDIV_MASK, con0);
 	period = FIELD_GET(PWM_PERIOD_MASK, con1);
 	/*
 	 * period has 12 bits, clk_div 11 and NSEC_PER_SEC has 30,
 	 * so period * (clk_div + 1) * NSEC_PER_SEC doesn't overflow.
 	 */
+	if (rate == 0) {
+		pr_notice("%s rate[%llx] will divide by zero", __func__, rate);
+		return 0;
+	}
 	state->period = DIV64_U64_ROUND_UP(period * (clk_div + 1) * NSEC_PER_SEC, rate);
 	high_width = FIELD_GET(PWM_HIGH_WIDTH_MASK, con1);
 	state->duty_cycle = DIV64_U64_ROUND_UP(high_width * (clk_div + 1) * NSEC_PER_SEC,
@@ -243,16 +241,22 @@ static int mtk_disp_pwm_probe(struct platform_device *pdev)
 	mdp->data = of_device_get_match_data(&pdev->dev);
 
 	mdp->base = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(mdp->base))
+	if (IS_ERR(mdp->base)) {
+		pr_notice("%s mdp base null", __func__);
 		return PTR_ERR(mdp->base);
+	}
 
 	mdp->clk_main = devm_clk_get(&pdev->dev, "main");
-	if (IS_ERR(mdp->clk_main))
+	if (IS_ERR(mdp->clk_main)) {
+		pr_notice("%s clk_main is null", __func__);
 		return PTR_ERR(mdp->clk_main);
+	}
 
 	mdp->clk_mm = devm_clk_get(&pdev->dev, "mm");
-	if (IS_ERR(mdp->clk_mm))
+	if (IS_ERR(mdp->clk_mm)) {
+		pr_notice("%s clk_mm is null", __func__);
 		return PTR_ERR(mdp->clk_mm);
+	}
 
 	mdp->chip.dev = &pdev->dev;
 	mdp->chip.ops = &mtk_disp_pwm_ops;
@@ -288,6 +292,16 @@ static const struct mtk_pwm_data mt2701_pwm_data = {
 	.bls_debug_mask = 0x3,
 };
 
+static const struct mtk_pwm_data mt6799_pwm_data = {
+	.enable_mask = BIT(0),
+	.con0 = 0x18,
+	.con0_sel = 0x0,
+	.con1 = 0x1C,
+	.has_commit = true,
+	.commit = 0xC,
+	.commit_mask = 0x1,
+};
+
 static const struct mtk_pwm_data mt8173_pwm_data = {
 	.enable_mask = BIT(0),
 	.con0 = 0x10,
@@ -311,8 +325,13 @@ static const struct mtk_pwm_data mt8183_pwm_data = {
 static const struct of_device_id mtk_disp_pwm_of_match[] = {
 	{ .compatible = "mediatek,mt2701-disp-pwm", .data = &mt2701_pwm_data},
 	{ .compatible = "mediatek,mt6595-disp-pwm", .data = &mt8173_pwm_data},
+	{ .compatible = "mediatek,mt6873-disp-pwm", .data = &mt6799_pwm_data},
+	{ .compatible = "mediatek,mt6853-disp-pwm", .data = &mt6799_pwm_data},
+	{ .compatible = "mediatek,mt6985-disp-pwm0", .data = &mt6799_pwm_data},
 	{ .compatible = "mediatek,mt8173-disp-pwm", .data = &mt8173_pwm_data},
 	{ .compatible = "mediatek,mt8183-disp-pwm", .data = &mt8183_pwm_data},
+	{ .compatible = "mediatek,mt6886-disp-pwm", .data = &mt6799_pwm_data},
+	{ .compatible = "mediatek,mt6835-disp-pwm", .data = &mt6799_pwm_data},
 	{ }
 };
 MODULE_DEVICE_TABLE(of, mtk_disp_pwm_of_match);
