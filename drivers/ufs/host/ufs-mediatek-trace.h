@@ -29,13 +29,13 @@ TRACE_EVENT(ufs_mtk_event,
 );
 
 TRACE_EVENT(ufs_mtk_clk_scale,
-	TP_PROTO(const char *name, bool scale_up, unsigned long clk_rate),
+	TP_PROTO(const char *name, bool scale_up, uint64_t clk_rate),
 	TP_ARGS(name, scale_up, clk_rate),
 
 	TP_STRUCT__entry(
 		__field(const char*, name)
 		__field(bool, scale_up)
-		__field(unsigned long, clk_rate)
+		__field(uint64_t, clk_rate)
 	),
 
 	TP_fast_assign(
@@ -44,7 +44,7 @@ TRACE_EVENT(ufs_mtk_clk_scale,
 		__entry->clk_rate = clk_rate;
 	),
 
-	TP_printk("ufs: clk (%s) scaled %s @ %lu",
+	TP_printk("ufs: clk (%s) scaled %s @ %lld",
 		  __entry->name,
 		  __entry->scale_up ? "up" : "down",
 		  __entry->clk_rate)
@@ -53,7 +53,8 @@ TRACE_EVENT(ufs_mtk_clk_scale,
 #endif
 
 #undef TRACE_INCLUDE_PATH
+#define TRACE_INCLUDE_PATH .
+
 #undef TRACE_INCLUDE_FILE
-#define TRACE_INCLUDE_PATH ../../drivers/ufs/host
 #define TRACE_INCLUDE_FILE ufs-mediatek-trace
 #include <trace/define_trace.h>
