@@ -434,6 +434,7 @@ config S390_AP_IOMMU
 
 config MTK_IOMMU
 	tristate "MediaTek IOMMU Support"
+	depends on ARM || ARM64
 	depends on ARCH_MEDIATEK || COMPILE_TEST
 	select ARM_DMA_USE_IOMMU
 	select IOMMU_API
@@ -461,6 +462,34 @@ config MTK_IOMMU_V1
 	  DMA memory accesses for the multimedia subsystem.
 
 	  if unsure, say N here.
+
+config MTK_SMMU_V3_PMU
+	tristate "MediaTek SMMUV3 PMU Support"
+	depends on ARM_SMMU_V3
+	help
+	  Support for the SMMU v3 PMU on mediatek SOCs.
+
+	  If unsure, say N here.
+
+config MTK_SMMU_V3_LMU
+	tristate "MediaTek SMMUV3 LMU Support"
+	depends on ARM_SMMU_V3
+	help
+	  Support for the SMMU v3 Latency Meter Unit on mediatek SOCs.
+	  LMU is used to get the information of how many cycles spent
+	  for masters or a particular master in the SMMU.
+
+	  If unsure, say N here.
+
+config MTK_SMMU_V3_MPAM_MON
+	tristate "MediaTek SMMUV3 MPAM Resource Monitor Support"
+	depends on ARM_SMMU_V3
+	help
+	  Support for the SMMU v3 MPAM resource monitor on mediatek SOCs.
+	  MPAM resource monitor is used to monitor the cache storage usage
+	  in the SMMU TCU and TBUs.
+
+	  If unsure, say N here.
 
 config QCOM_IOMMU
 	# Note: iommu drivers cannot (yet?) be built as modules
