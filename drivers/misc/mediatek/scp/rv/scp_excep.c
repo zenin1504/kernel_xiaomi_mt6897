@@ -10,7 +10,9 @@
 #include <linux/io.h>
 #include <linux/mutex.h>
 #include <mt-plat/aee.h>
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #include <aed.h>
+#endif
 //#include <mt-plat/sync_write.h>
 #include <linux/sched_clock.h>
 #include <linux/ratelimit.h>
@@ -727,9 +729,11 @@ void scp_aed(enum SCP_RESET_TYPE type, enum scp_core_id id)
 	}
 
 	while (1) {
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 		/* wait for previous coredump complete */
 		if (aee_get_mode() == AEE_MODE_CUSTOMER_USER)
 			break;
+#endif
 		ret = wait_for_completion_interruptible_timeout(
 			&scp_coredump_comp, timeout);
 		if (ret == 0) {
