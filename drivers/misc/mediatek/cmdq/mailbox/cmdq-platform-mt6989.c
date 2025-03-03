@@ -260,10 +260,12 @@ bool cmdq_mbox_hw_trace_thread(void *chan)
 
 void cmdq_error_irq_debug(void *chan)
 {
+#if IS_ENABLED(CONFIG_ARM_SMMU_V3)
 	struct device *dev = cmdq_mbox_get_dev(chan);
 
 	//dump smmu info to check gce va mode
 	mtk_smmu_reg_dump(MM_SMMU, dev, MMSID_SRT_NORMAL);
+#endif
 	//dump gce req
 	cmdq_mbox_dump_gce_req(chan);
 }
@@ -271,10 +273,14 @@ void cmdq_error_irq_debug(void *chan)
 bool cmdq_check_tf(struct device *dev,
 	u32 sid, u32 tbu, u32 *axids)
 {
+#if IS_ENABLED(CONFIG_ARM_SMMU_V3)
 	struct mtk_smmu_fault_param out_param;
 
 	return mtk_smmu_tf_detect(MM_SMMU, dev,
 		sid, tbu, axids, 1, &out_param);
+#else
+	return false;
+#endif
 }
 
 uint cmdq_get_mdp_min_thread(void)
