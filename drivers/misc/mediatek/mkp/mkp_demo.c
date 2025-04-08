@@ -199,7 +199,9 @@ static void mkp_protect_kernel_work_fn(struct work_struct *work)
 
 	if (policy_ctrl[MKP_POLICY_KERNEL_CODE] &&
 		policy_ctrl[MKP_POLICY_KERNEL_RODATA]) {
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 		mkp_get_krn_info(&p_stext, &p_etext, &p__init_begin);
+#endif
 		if (p_stext == NULL || p_etext == NULL || p__init_begin == NULL) {
 			pr_info("%s: retry in 0.1 second", __func__);
 			if (--retry_num >= 0)
@@ -211,8 +213,10 @@ static void mkp_protect_kernel_work_fn(struct work_struct *work)
 		init = 1;
 	}
 	if (policy_ctrl[MKP_POLICY_KERNEL_CODE] != 0) {
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 		if (!init)
 			mkp_get_krn_code(&p_stext, &p_etext);
+#endif
 		if (p_stext == NULL || p_etext == NULL) {
 			pr_info("%s: retry in 0.1 second", __func__);
 			if (--retry_num >= 0)
@@ -223,8 +227,10 @@ static void mkp_protect_kernel_work_fn(struct work_struct *work)
 		}
 	}
 	if (policy_ctrl[MKP_POLICY_KERNEL_RODATA] != 0) {
+#if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 		if (!init)
 			mkp_get_krn_rodata(&p_etext, &p__init_begin);
+#endif
 		if (p_etext == NULL || p__init_begin == NULL) {
 			pr_info("%s: retry in 0.1 second", __func__);
 			if (--retry_num >= 0)

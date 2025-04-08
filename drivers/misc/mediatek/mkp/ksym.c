@@ -15,6 +15,7 @@ static void mkp_addr_find_krn_info(unsigned long *stext,
 	*etext = aee_get_etext();
 	*init_begin = aee_get_init_begin();
 }
+
 void mkp_get_krn_info(void **p_stext, void **p_etext,
 	void **p__init_begin)
 {
